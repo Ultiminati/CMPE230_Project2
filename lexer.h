@@ -1,5 +1,5 @@
-#ifndef CMPE230_PROJECT1_LEXER_H
-#define CMPE230_PROJECT1_LEXER_H
+#ifndef CMPE230_PROJECT2_LEXER_H
+#define CMPE230_PROJECT2_LEXER_H
 
 #define TOKEN_SIZE 256
 
@@ -33,5 +33,6 @@ struct token{
 int isNumber(char *string);
 enum type getType(char *string, int len);
 struct token *tokenize(char *string, int len);
-
+int compileregex();
+void lexer(struct token* tokens);
 #endif

@@ -7,6 +7,10 @@
 
 
 const char *keywords[] = {"not", "xor", "ls", "rs", "lr", "rr"};
+extern regex_t regex;
+regmatch_t match[1];
+int regexVal;
+extern char msgbuf[257];
 
 int isNumber(char *string){
     while (*string != '\0'){
@@ -72,6 +76,52 @@ struct token *tokenize(char *string, int len){
     token->type = type;
     strncpy(token->value, string, len+1);
     return token;
+}
+
+int compileregex(){
+    //compile the regex pattern
+    regexVal = regcomp(&regex, "[a-zA-Z]+|[0-9]+|[^[:alnum:]]", REG_EXTENDED);
+    if (regexVal) {
+        fprintf(stderr, "Regex compilation error\n");
+        return 1;
+    }
+    return 0;
+}
+
+void lexer(struct token* tokens){
+    //execute search
+    regexVal = regexec(&regex, msgbuf, 1, match, 0);
+    int lastPtr = 0;
+    int i = 0;
+    //look for all matches in the line
+    while (regexVal == 0) {
+
+        int startBuffer = match[0].rm_so;
+        int endBuffer = match[0].rm_eo;
+        int len = endBuffer - startBuffer;
+
+        //copy the match to a string
+        char tokenStr[len + 1];
+        strncpy(tokenStr, msgbuf + lastPtr + startBuffer, len);
+        tokenStr[len] = '\0';
+
+        //check for beginning of the comment
+        const char *comment = "%";
+        int cmp = strcmp(tokenStr, comment);
+        if (cmp == 0) break;
+        //tokenize and add to array
+        if (!isspace((int) tokenStr[0])) {
+            struct token *token = tokenize(tokenStr, len);
+            tokens[i] = *token;
+            i++;
+        }
+
+        //go to next match
+        lastPtr += endBuffer;
+        regexVal = regexec(&regex, msgbuf + lastPtr, 1, match, 0);
+    }
+    struct token *eol = tokenize("$", 1);
+    tokens[i] = *eol;
 }
 
 //code used for unit testing
