@@ -1,30 +1,27 @@
 #include <stdio.h>
 #include <regex.h>
 #include <string.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include "lexer.h"
 #include "stacks.h"
 #include "concatenator.h"
 
-#define TOKEN_SIZE 256
-#define TABLE_SIZE 128
-       
-regex_t regex;
-regmatch_t match[1];
 
-int regexVal;
+
 char msgbuf[257];
-
+regex_t regex;
 
 int tokenIndex = 0;
 int intermediateVariableIndex = 0;
 int isAssigned = 0;
 
-char *keys[TABLE_SIZE];
-long long variables[TABLE_SIZE];
-char assigned_variables[TABLE_SIZE];
-
+char* keys[TABLE_SIZE];
+str firstString = {125,NULL,
+                   "; ModuleID = 'advcalc2ir'\n"
+                   "declare i32 @printf(i8*, ...)\n"
+                   "@print.str = constant [4 x i8] c\"%d\\0A\\00\""
+                   "\n\ndefine i32 @main() {\n"};
+str* lastString;
 
 
 
@@ -109,33 +106,12 @@ const int parsingTable[75][16][2] =
 
 
 
-long long power(long long base, long long exp){
-    long long result = 1;
-    for (int i = 0; i < exp; i++){
-        result = result*base;
-    }
-    return result;
-}
-
-
-int toHash(char* string){
-    long hash = 0;
-    int p = 991;
-    int powr = 0;
-    while (*string != '\0'){
-        hash = hash + ((int) *string)*(power(p, powr));
-        string++;
-        powr++;
-    }
-    return hash%TABLE_SIZE;
-}
 
 char exists(char* string){
-    int hash = toHash(string);
     int i;
     for (i = 0; i < TABLE_SIZE; i++){
-        if (keys[(hash+i)%TABLE_SIZE] != NULL){
-            if (strcmp(keys[(hash+i)%TABLE_SIZE],string) == 0) {
+        if (keys[i] != NULL){
+            if (strcmp(keys[i],string) == 0) {
                 return 1;
             }
         }
@@ -143,60 +119,53 @@ char exists(char* string){
     return 0;
 }
 
-long long get(char* string){
-    int hash = toHash(string);
-    int i;
-    for (i = 0; i < TABLE_SIZE; i++){
-        if (keys[(hash+i)%TABLE_SIZE] != NULL && strcmp(keys[(hash+i)%TABLE_SIZE],string) == 0) {
-            break;
-        }
-    }
-    return variables[(hash+i)%TABLE_SIZE];
-}
-
-void put(char* string, long long value){
-    int hash = toHash(string);
+void put(char* string){
     int i;
     if (!exists(string)) {
         for (i = 0; i < TABLE_SIZE; i++) {
-            if (assigned_variables[(hash + i) % TABLE_SIZE] == 0) break;
+            if (keys[i] == NULL) break;
         }
-        assigned_variables[(hash + i) % TABLE_SIZE] = 1;
-        variables[(hash + i) % TABLE_SIZE] = value;
         char* keyspace = (char*)malloc((TOKEN_SIZE+1)*sizeof(char));
         strcpy(keyspace,string);
-        keys[(hash + i) % TABLE_SIZE] = keyspace;
+        keys[i] = keyspace;
     }
-    else {
-        for (i = 0; i < TABLE_SIZE; i++){
-            if (keys[(hash+i)%TABLE_SIZE] != NULL && strcmp(keys[(hash+i)%TABLE_SIZE],string) == 0) {
-                break;
-            }
-        }
-        variables[(hash+i)%TABLE_SIZE] = value;
+}
+
+
+int countDigits(int num) {
+    int count = 0;
+    while (num != 0) {
+        num /= 10;
+        count++;
     }
+    return count;
 }
 
 struct intStack *stateStack;
 struct Stack *tokenStack;
 
 
-long long arithmetic(struct token* operator, struct token* leftoperand, struct token* rightoperand){
-    long long leftVal = strtoll(leftoperand->value, NULL, 10);
-    long long rightVal = strtoll(rightoperand->value, NULL, 10);
-
-    long long result;
+char* arithmetic(struct token* operator, struct token* leftoperand, struct token* rightoperand){
+    char* left = leftoperand->value;
+    char* right = rightoperand->value;
+    char* result = (char*)calloc(2+ countDigits(intermediateVariableIndex),sizeof(char));
+    int strsize = countDigits(intermediateVariableIndex) + (int)strlen(left) + (int)strlen(right);
+    str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+17));
+    intermediateVariableIndex += 1;
     switch(operator->type){
         case MULT:{
             switch (operator->value[0]){
                 case '*':
-                    result = leftVal * rightVal;
+                    strsize += 14;
+                    sprintf(resulting->text,"%%%d = mul i32 %s,%s\n",intermediateVariableIndex, left, right);
                     break;
                 case '/':
-                    result = leftVal / rightVal;
+                    strsize += 15;
+                    sprintf(resulting->text,"%%%d = sdiv i32 %s,%s\n",intermediateVariableIndex, left, right);
                     break;
                 case '%':
-                    result = leftVal % rightVal;
+                    strsize += 15;
+                    sprintf(resulting->text,"%%%d = srem i32 %s,%s\n",intermediateVariableIndex, left, right);
                     break;
             }
             break;
@@ -204,27 +173,40 @@ long long arithmetic(struct token* operator, struct token* leftoperand, struct t
         case ADD:{
             switch (operator->value[0]){
                 case '+':
-                    result = leftVal + rightVal;
+                    strsize += 14;
+                    sprintf(resulting->text,"%%%d = add i32 %s,%s\n",intermediateVariableIndex, left, right);
                     break;
                 case '-':
-                    result = leftVal - rightVal;
+                    strsize += 14;
+                    sprintf(resulting->text,"%%%d = sub i32 %s,%s\n",intermediateVariableIndex, left, right);
                     break;
             }
             break;
         }
         case AND:{
-            result = leftVal & rightVal;
+            strsize += 14;
+            sprintf(resulting->text,"%%%d = and i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
         }
         case OR:{
-            result = leftVal | rightVal;
+            strsize += 13;
+            sprintf(resulting->text,"%%%d = or i32 %s,%s\n",intermediateVariableIndex, left, right);
+            break;
+        }
+        default:{
+            printf("%s","Something has gone really, really wrong.");
             break;
         }
     }
+    resulting->size = strsize;
+    resulting->next = NULL;
+    lastString->next = resulting;
+    lastString = resulting;
+    sprintf(result,"%%%d",intermediateVariableIndex);
     return result;
 }
 
-int getFunction(char* function){
+int getFunction(const char* function){
     if (*function == '\0') return -1;
     switch (*function){
         case 'n':
@@ -248,36 +230,53 @@ int getFunction(char* function){
             }
         }
     }
+    return -1;
 }
 
 
-long long evaluate(struct token* function, struct token* leftoperand, struct token* rightoperand){
-    long long leftVal = strtoll(leftoperand->value, NULL, 10);
+char* evaluate(struct token* function, struct token* leftoperand, struct token* rightoperand){
+    char* left = leftoperand->value;
+    int strsize = countDigits(intermediateVariableIndex) + (int)strlen(left);
+    str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+17));
+    intermediateVariableIndex += 1;
     if (rightoperand == NULL){
-        return ~leftVal;
+        strsize += 16;
+        sprintf(resulting->text,"%%%d = xor i32 %s,-1\n",intermediateVariableIndex, left);
     }
-    long long rightVal = strtoll(rightoperand->value, NULL, 10);
-
-    long long result;
+    char* right = rightoperand->value;
+    strsize += (int)strlen(right);
+    char* result = (char*)calloc(2+ countDigits(intermediateVariableIndex),sizeof(char));
     switch (getFunction(function->value)){
         case 0:
             break;
         case 1:
-            result = leftVal ^ rightVal;
+            strsize += 14;
+            sprintf(resulting->text,"%%%d = xor i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
         case 2:
-            result = leftVal << rightVal;
+            strsize += 14;
+            sprintf(resulting->text,"%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
         case 3:
-            result = (leftVal << rightVal)|(leftVal >> (64 - rightVal));
+            strsize += 14;
+            //NOT YET IMPLEMENTED
+            sprintf(resulting->text,"%%%d = bro i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
         case 4:
-            result = leftVal >> rightVal;
+            strsize += 15;
+            sprintf(resulting->text,"%%%d = ashr i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
         case 5:
-            result = (leftVal >> rightVal)|(leftVal << (64 - rightVal));
+            strsize += 14;
+            //NOT YET IMPLEMENTED
+            sprintf(resulting->text,"%%%d = wtf i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
     }
+    resulting->size = strsize;
+    resulting->next = NULL;
+    lastString->next = resulting;
+    lastString = resulting;
+    sprintf(result,"%%%d",intermediateVariableIndex);
     return result;
 }
 
@@ -309,14 +308,19 @@ void reduce(int rule){
         case 2:{
             struct token* expression = (struct token*) pop(tokenStack);
             pop(tokenStack);
-            struct token* var = (struct token*) pop(tokenStack);
-            long long value = strtoll(expression->value, NULL, 10);
-            put(var->value, value);
+            struct token* var = (struct token*) peek(tokenStack);
+            put(var->value);
             var->type = S;
-            push(tokenStack, var);
             isAssigned = 1;
             i_pop(stateStack);
             i_pop(stateStack);
+            int strsize = 19 + (int)strlen(expression->value) + (int)strlen(var->value);
+            str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+1));
+            sprintf(resulting->text,"store i32 %s, i32* %%%s\n", expression->value, var->value);
+            resulting->size = strsize;
+            resulting->next = NULL;
+            lastString->next = resulting;
+            lastString = resulting;
             break;
         }
         case 3:{
@@ -335,9 +339,8 @@ void reduce(int rule){
             struct token* leftOperand = (struct token*) pop(tokenStack);
             pop(tokenStack);
             struct token* function = (struct token*) pop(tokenStack);
-            char value[TOKEN_SIZE+1];
-            sprintf(value, "%lld", evaluate(function, leftOperand, rightOperand));
-            int len = strlen(value);
+            char* value = evaluate(function, leftOperand, rightOperand);
+            int len = (int)strlen(value);
             struct token *newtoken = tokenize(value, len);
             newtoken->type = E;
             push(tokenStack, newtoken);
@@ -353,9 +356,8 @@ void reduce(int rule){
             struct token* leftOperand = (struct token*) pop(tokenStack);
             pop(tokenStack);
             struct token* function = (struct token*) pop(tokenStack);
-            char value[TOKEN_SIZE+1];
-            sprintf(value, "%lld", evaluate(function, leftOperand, NULL));
-            struct token *newtoken = tokenize(value, strlen(value));
+            char* value = evaluate(function, leftOperand, NULL);
+            struct token *newtoken = tokenize(value, (int) strlen(value));
             newtoken->type = E;
             push(tokenStack, newtoken);
             i_pop(stateStack);
@@ -370,9 +372,9 @@ void reduce(int rule){
             struct token* rightOperand = (struct token*) pop(tokenStack);
             struct token* operator = (struct token*) pop(tokenStack);
             struct token* leftOperand = (struct token*) pop(tokenStack);
-            char value[TOKEN_SIZE+1];
-            sprintf(value, "%lld", arithmetic(operator, leftOperand, rightOperand));
-            struct token *newtoken = tokenize(value, strlen(value));
+            printf("%s %s %s\n",rightOperand->value,operator->value,leftOperand->value);
+            char* value = arithmetic(operator, leftOperand, rightOperand);
+            struct token *newtoken = tokenize(value, (int) strlen(value));
             newtoken->type = E;
             push(tokenStack, newtoken);
             i_pop(stateStack);
@@ -380,21 +382,22 @@ void reduce(int rule){
             break;
         }
         case 10:{
-            struct token* variable = (struct token*) pop(tokenStack);
-            if (exists(variable->value) == 0) {
-                printf("Variable %s is not assigned a value\n", variable->value);
-                variable->value[0] = '0';
-                variable->value[1] = '\0';
-                variable->type = E;
-                push(tokenStack, variable);
+            struct token* var = (struct token*) peek(tokenStack);
+            if (exists(var->value) == 0) {
+                printf("Variable %s is not assigned a value\n", var->value);
+                var->type = E;
                 break;
             }
-            long long value = get(variable->value);
-            char valStr[TOKEN_SIZE+1];
-            sprintf(valStr, "%lld", value);
-            strcpy(variable->value, valStr); 
-            variable->type = E;
-            push(tokenStack, variable);
+            intermediateVariableIndex += 1;
+            int strsize = 21 + countDigits(intermediateVariableIndex) + (int)strlen(var->value);
+            str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+1));
+            sprintf(resulting->text,"%%%d = load i32, i32* %%%s\n", intermediateVariableIndex,var->value);
+            resulting->size = strsize;
+            resulting->next = NULL;
+            lastString->next = resulting;
+            lastString = resulting;
+            var->type = E;
+            sprintf(var->value,"%%%d",intermediateVariableIndex);
             break;
         }
         case 11:{
@@ -403,83 +406,37 @@ void reduce(int rule){
             push(tokenStack, token);
             break;
         }
+        default:{
+            printf("%s","Something has gone really, really wrong.");
+            break;
+        }
     }
 }
 
 int main(){
-
     for (int i = 0; i < TABLE_SIZE; i++){
-        assigned_variables[i] = 0;
         keys[i] = NULL;
     }
-
     printf("> ");
-    //compile the regex pattern
-    regexVal = regcomp(&regex, "[a-zA-Z]+|[0-9]+|[^[:alnum:]]", REG_EXTENDED);
+    compileregex();
 
-    if (regexVal) {
-    fprintf(stderr, "Regex compilation error\n");
-    return 1;
-}
+    str* middleString = (str*)malloc(sizeof(str));
+    lastString = middleString;
 
     //start reading input
     while (fgets(msgbuf, sizeof(msgbuf), stdin)) {
-        if (msgbuf == NULL) break;
-
-        //execute search
-        regexVal = regexec(&regex, msgbuf, 1, match, 0);
-
-        int lastPtr = 0;
-
-        int i = 0;
-
         //allocate memory for tokens
-        struct token* tokens = calloc(256, sizeof(struct token));
-
-
-
-
-        //look for all matches in the line
-        while (regexVal == 0) {
-
-            int startBuffer = match[0].rm_so;
-            int endBuffer = match[0].rm_eo;
-            int len = endBuffer - startBuffer;
-
-            //copy the match to a string
-            char tokenStr[len + 1];
-            strncpy(tokenStr, msgbuf + lastPtr + startBuffer, len);
-            tokenStr[len] = '\0';
-            
-            //check for beginning of the comment 
-            const char *comment = "%";
-            int cmp = strcmp(tokenStr, comment);
-            if (cmp == 0) break;
-            //tokenize and add to array
-            if (!isspace((int) tokenStr[0])) {
-                struct token *token = tokenize(tokenStr, len);
-                tokens[i] = *token;
-                i++;
-            }
-
-            //go to next match
-            lastPtr += endBuffer;
-            regexVal = regexec(&regex, msgbuf + lastPtr, 1, match, 0);
+        struct token* tokens = calloc(TOKEN_SIZE, sizeof(struct token));
+        lexer(tokens);
+        if (strcmp(msgbuf,"exit\n") == 0){
+            break;
         }
-        struct token *eol = tokenize("$", 1);
-        tokens[i] = *eol;
-
         //parsing block
         i_init(&stateStack);
         init(&tokenStack);
-
         i_push(stateStack, 0);
         int condition = 1;
-
-
         int reduced = 0;
-
-
         int step = 0;
         while (condition) {
             if ((step == 0) && (tokens[0].type == EOL)){
@@ -503,13 +460,20 @@ int main(){
             int action = parsingTable[currentState][type][0];
             int targetState = parsingTable[currentState][type][1];
 
-
             reduced = 0;
             step++;
             switch (action) {
                 //accept the statement
                 case -1: {
-                    if (isAssigned == 0) printf("%s\n", ((struct token *) peek(tokenStack))->value);
+                    if (isAssigned == 0) {
+                        int strsize = 99 + countDigits(intermediateVariableIndex) + (int)strlen(peek(tokenStack)->value);
+                        str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+1));
+                        sprintf(resulting->text,"call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %s )\n", peek(tokenStack)->value);
+                        resulting->size = strsize;
+                        resulting->next = NULL;
+                        lastString->next = resulting;
+                        lastString = resulting;
+                    }
                     condition = 0;
                     printf("> ");
                     break;
@@ -537,6 +501,10 @@ int main(){
                     i_push(stateStack, currentState);
                     goTo(targetState);
                     break;
+                default:{
+                    printf("%s","Something has gone really, really wrong.");
+                    break;
+                }
             }
         }
         free(stateStack);
@@ -546,5 +514,14 @@ int main(){
         isAssigned = 0;
     }
     regfree(&regex);
+    str* variableDeclarations = declareAll();
+    firstString.next = variableDeclarations;
+    variableDeclarations->next = middleString;
+    str* endString = (str*)malloc(sizeof(str)+sizeof(char)*12);
+    endString->size = 11;
+    endString->next = NULL;
+    strcpy(endString->text,"ret i32 0\n}");
+    lastString->next = endString;
+    printf("%s",linkStrings(&firstString));
 }
 
