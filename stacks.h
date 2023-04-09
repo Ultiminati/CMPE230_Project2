@@ -1,5 +1,5 @@
-#ifndef CMPE230_PROJECT1_DATATYPES_H
-#define CMPE230_PROJECT1_DATATYPES_H
+#ifndef CMPE230_PROJECT2_STACKS_H
+#define CMPE230_PROJECT2_STACKS_H
 
 struct Node{
     struct token *data;
@@ -35,4 +35,4 @@ int i_pop(struct intStack *Stack);
 int i_peek(struct intStack *Stack);
 
 
-#endif //CMPE230_PROJECT1_DATATYPES_H
+#endif //CMPE230_PROJECT2_STACKS_H
