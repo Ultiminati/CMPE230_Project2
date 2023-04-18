@@ -72,7 +72,7 @@ enum type getType(char *string, int len){
 //undefined for whitespaces.
 struct token *tokenize(char *string, int len){
     enum type type = getType(string, len);
-    struct token *token = calloc(1, sizeof(struct token));
+    struct token *token = malloc(sizeof(struct token) + len*sizeof(char));
     token->type = type;
     strncpy(token->value, string, len+1);
     return token;

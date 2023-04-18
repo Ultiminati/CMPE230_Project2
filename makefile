@@ -2,13 +2,13 @@ AdvCalc: main.o concatenator.o lexer.o stacks.o
 	gcc main.o concatenator.o lexer.o stacks.o -o AdvCalc
 
 main.o: main.c concatenator.h lexer.h stacks.h
-	gcc -c main.c
+	gcc -g -c main.c
 
 lexer.o: lexer.c lexer.h
-	gcc -c lexer.c
+	gcc -g -c lexer.c
 
 stacks.o: stacks.c stacks.h
-	gcc -c stacks.c
+	gcc -g -c stacks.c
 
 concatenator.o: concatenator.c concatenator.h
-	gcc -c concatenator.c
+	gcc -g -c concatenator.c

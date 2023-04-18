@@ -2,12 +2,13 @@
     "tasks": [
         {
             "type": "cppbuild",
-            "label": "C/C++: gcc build active file",
-            "command": "/usr/bin/gcc",
+            "label": "C/C++: gcc-12 build active file",
+            "command": "/usr/bin/gcc-12",
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "${file}",
+                //this is the default value "${file}",
+                "*.c",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}"
             ],
