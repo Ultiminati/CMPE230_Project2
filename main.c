@@ -24,6 +24,8 @@ str firstString = {125,NULL,
                    "\n\ndefine i32 @main() {\n"};
 str* lastString;
 
+int errorFoundUninitVar = 0;
+
 
 
 const int parsingTable[75][16][2] =
@@ -149,10 +151,11 @@ struct Stack *tokenStack;
 char* arithmetic(struct token* operator, struct token* leftoperand, struct token* rightoperand){
     char* left = leftoperand->value;
     char* right = rightoperand->value;
-    char* result = (char*)calloc(2+ countDigits(intermediateVariableIndex),sizeof(char));
+    int digit = countDigits(intermediateVariableIndex);
+    intermediateVariableIndex += 1;
+    char* result = (char*)calloc(2 + countDigits(intermediateVariableIndex),sizeof(char));
     int strsize = countDigits(intermediateVariableIndex) + (int)strlen(left) + (int)strlen(right);
     str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+17));
-    intermediateVariableIndex += 1;
     switch(operator->type){
         case MULT:{
             switch (operator->value[0]){
@@ -247,66 +250,90 @@ int strsizeof(char* str){
 char* evaluate(struct token* function, struct token* leftoperand, struct token* rightoperand){
     char* left = leftoperand->value;
     int strsize = 0;
-    //countDigits(intermediateVariableIndex) + (int)strlen(left);
-    str* resulting = (str*)malloc(sizeof(str));
+    str* resulting = NULL;
     intermediateVariableIndex += 1;
     if (rightoperand == NULL){
-        strsize += 16 + countDigits(intermediateVariableIndex) + strlen(left) + 1;
-        resulting = realloc(resulting, sizeof(resulting) + sizeof(char)*strsize);
-        sprintf(resulting->text,"%%%d = xor i32 %s,-1\n",intermediateVariableIndex, left);
+        strsize = snprintf(NULL, 0, "%%%d = xor i32 %s,-1\n",intermediateVariableIndex, left) + 1;
+        resulting = malloc(sizeof(str) + strsize + 1);
+        snprintf(resulting->text, strsize + 1, "%%%d = xor i32 %s,-1\n",intermediateVariableIndex, left);
     }
     char* right = rightoperand->value;
-    char* result = (char*)calloc(2+ countDigits(intermediateVariableIndex),sizeof(char));
     switch (getFunction(function->value)){
         case 0:
             break;
         case 1:
-            strsize += 14 + strlen(left) + strlen(right) + 1;
-            resulting = realloc(resulting, sizeof(resulting) + sizeof(char)*strsize);
-            sprintf(resulting->text,"%%%d = xor i32 %s,%s\n",intermediateVariableIndex, left, right);
+            strsize = snprintf(NULL, 0, "%%%d = xor i32 %s,%s\n",intermediateVariableIndex, left, right) + 1;
+            resulting = malloc(sizeof(str) + sizeof(char)*strsize);
+            snprintf(resulting->text, strsize + 1, "%%%d = xor i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
         case 2:
-            strsize += 14 + strlen(left) + strlen(right) + 1;
-            resulting = realloc(resulting, sizeof(resulting) + sizeof(char)*strsize);
-            sprintf(resulting->text,"%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
+            strsize = snprintf(NULL, 0, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right) + 1;
+            resulting = malloc(sizeof(str) + sizeof(char)*strsize);
+            snprintf(resulting->text, strsize + 1, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
         case 3:
-            strsize += 100 + 2*strlen(left) + 2*strlen(right) + 3*(countDigits(intermediateVariableIndex)+1);
-            resulting = realloc(resulting, sizeof(resulting) + sizeof(char)*(strsize));
-            //NOT YET IMPLEMENTED shl, 32 - lshr
-            int s1 = sprintf(resulting->text,"%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
+            strsize = snprintf(NULL, 0, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
+            resulting = malloc(sizeof(str) + sizeof(char)*(strsize + 1));
+            //snprintf does not count for the trailing null, so add it to the sum
+            int s1 = snprintf(resulting->text, strsize + 1, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
             int result1 = intermediateVariableIndex;
             intermediateVariableIndex++;
-            int s2 = sprintf(resulting->text + s1,"%%%d = sub i32 32,%s\n",intermediateVariableIndex, right);
+
+            int res2 = snprintf(NULL, 0, "%%%d = sub i32 32,%s\n",intermediateVariableIndex, right) + 1;
+            strsize += res2;
+            resulting = realloc(resulting, sizeof(str) + sizeof(char)*(strsize));
+            int s2 = snprintf(resulting->text + s1, res2 + 1, "%%%d = sub i32 32,%s\n",intermediateVariableIndex, right);
             intermediateVariableIndex++;
-            int s3 = sprintf(resulting->text + s1 + s2,"%%%d = lshr i32 %s,%%%d\n",intermediateVariableIndex, left, intermediateVariableIndex - 1);
+
+            int res3 = snprintf(NULL, 0, "%%%d = lshr i32 %s,%%%d\n",intermediateVariableIndex, left, intermediateVariableIndex - 1) + 1;
+            strsize += res3;
+            resulting = realloc(resulting, sizeof(str) +  sizeof(char)*(strsize));
+            int s3 = snprintf(resulting->text + s1 + s2, res3 + 1, "%%%d = lshr i32 %s,%%%d\n",intermediateVariableIndex, left, intermediateVariableIndex - 1);
             int result2 = intermediateVariableIndex;
             intermediateVariableIndex++;
-            sprintf(resulting->text + s1 + s2 + s3,"%%%d = or i32 %%%d,%%%d\n",intermediateVariableIndex, result1, result2);
+
+            int res4 = snprintf(NULL, 0, "%%%d = or i32 %%%d,%%%d\n",intermediateVariableIndex, result1, result2) + 1;
+            strsize += res4;
+            resulting = realloc(resulting, sizeof(str) +  sizeof(char)*(strsize));
+            snprintf(resulting->text + s1 + s2 + s3, res4 + 1, "%%%d = or i32 %%%d,%%%d\n",intermediateVariableIndex, result1, result2) + 1;
             break;
         case 4:
-            strsize += 15 + strlen(left) + strlen(right) + countDigits(intermediateVariableIndex);
-            resulting = realloc(resulting, sizeof(resulting) + sizeof(char)*(strsize));
-            sprintf(resulting->text,"%%%d = ashr i32 %s,%s\n",intermediateVariableIndex, left, right);
+            strsize = snprintf(NULL, 0, "%%%d = ashr i32 %s,%s\n",intermediateVariableIndex, left, right);
+            resulting = malloc(sizeof(str) + sizeof(char)*(strsize + 1));
+            snprintf(resulting->text, strsize + 1, "%%%d = ashr i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
         case 5:
-            strsize += 100 + 2*strlen(left) + 2*strlen(right) + 3*(countDigits(intermediateVariableIndex)+1);
-            resulting = realloc(resulting, sizeof(resulting) + sizeof(char)*(strsize));
-            //NOT YET IMPLEMENTED shl, 32 - lshr
-            int s4 = sprintf(resulting->text,"%%%d = lshr i32 %s,%s\n",intermediateVariableIndex, left, right);
+            strsize = snprintf(NULL, 0, "%%%d = lshr i32 %s,%s\n",intermediateVariableIndex, left, right);
+            resulting = malloc(sizeof(str) + sizeof(char)*(strsize + 1));
+            //snprintf does not count for the trailing null, so add it to the sum
+            int s4 = snprintf(resulting->text, strsize + 1, "%%%d = lshr i32 %s,%s\n",intermediateVariableIndex, left, right);
             int result3 = intermediateVariableIndex;
             intermediateVariableIndex++;
-            int s5 = sprintf(resulting->text + s4,"%%%d = sub i32 32,%s\n",intermediateVariableIndex, right);
+
+            int res5 = snprintf(NULL, 0, "%%%d = sub i32 32,%s\n",intermediateVariableIndex, right) + 1;
+            strsize += res5;
+            resulting = realloc(resulting, sizeof(str) +  sizeof(char)*(strsize));
+            int s5 = snprintf(resulting->text + s4, res5 + 1, "%%%d = sub i32 32,%s\n",intermediateVariableIndex, right);
             intermediateVariableIndex++;
-            int s6 = sprintf(resulting->text + s4 + s5,"%%%d = shl i32 %s,%%%d\n",intermediateVariableIndex, left, intermediateVariableIndex - 1);
+
+            int res6 = snprintf(NULL, 0, "%%%d = shl i32 %s,%%%d\n",intermediateVariableIndex, left, intermediateVariableIndex - 1) + 1;
+            strsize += res6;
+            resulting = realloc(resulting, sizeof(str) +  sizeof(char)*(strsize));
+            int s6 = snprintf(resulting->text + s4 + s5, res6 + 1, "%%%d = shl i32 %s,%%%d\n",intermediateVariableIndex, left, intermediateVariableIndex - 1);
             int result4 = intermediateVariableIndex;
             intermediateVariableIndex++;
-            sprintf(resulting->text + s4 + s5 + s6,"%%%d = or i32 %%%d,%%%d\n",intermediateVariableIndex, result3, result4);
+
+            int res7 = snprintf(NULL, 0, "%%%d = or i32 %%%d,%%%d\n",intermediateVariableIndex, result3, result4) + 1;
+            strsize += res7;
+            resulting = realloc(resulting, sizeof(str) +  sizeof(char)*(strsize));
+            snprintf(resulting->text + s4 + s5 + s6, res7 + 1, "%%%d = or i32 %%%d,%%%d\n",intermediateVariableIndex, result3, result4) + 1;
+            break;
     }
     resulting->size = strsize;
     resulting->next = NULL;
     lastString->next = resulting;
     lastString = resulting;
+    char* result = (char*)calloc(2 + countDigits(intermediateVariableIndex), sizeof(char));
     sprintf(result,"%%%d",intermediateVariableIndex);
     return result;
 }
@@ -403,7 +430,7 @@ void reduce(int rule){
             struct token* rightOperand = (struct token*) pop(tokenStack);
             struct token* operator = (struct token*) pop(tokenStack);
             struct token* leftOperand = (struct token*) pop(tokenStack);
-            printf("%s %s %s\n",rightOperand->value,operator->value,leftOperand->value);
+            //printf("%s %s %s\n",rightOperand->value,operator->value,leftOperand->value);
             char* value = arithmetic(operator, leftOperand, rightOperand);
             struct token *newtoken = tokenize(value, (int) strlen(value));
             newtoken->type = E;
@@ -415,7 +442,8 @@ void reduce(int rule){
         case 10:{
             struct token* var = (struct token*) peek(tokenStack);
             if (exists(var->value) == 0) {
-                printf("Error on line %d", line);
+                printf("Error in line %d!\n", line);
+                errorFoundUninitVar = 1;
                 var->type = E;
                 break;
             }
@@ -446,29 +474,32 @@ void reduce(int rule){
 
 int hasError = 0;
 
-int main(){
+int main(int argc, char** argv){
     for (int i = 0; i < TABLE_SIZE; i++){
         keys[i] = NULL;
     }
-    printf("> ");
     compileregex();
 
-    str* middleString = (str*)calloc(1, sizeof(str));
+    str* middleString = calloc(1, sizeof(str) + 1);
+    middleString -> size = 0;
+    middleString -> next = NULL;
+    sprintf(middleString -> text, "%s", "");
     lastString = middleString;
 
 
-
-    FILE *fp = fopen("output.ll", "w");
+    FILE *fp = fopen("test.ll", "w");
+    FILE *fr = fopen("test.adv", "r");
 
 
     //start reading input
-    while (fgets(msgbuf, sizeof(msgbuf), stdin)) {
+    while (fgets(msgbuf, sizeof(msgbuf), fr)) {
+
+        errorFoundUninitVar = 0;
+
+
         //allocate memory for tokens
         struct token* tokens = calloc(TOKEN_SIZE, sizeof(struct token));
         lexer(tokens);
-        if (strcmp(msgbuf,"exit\n") == 0){
-            break;
-        }
         line++;
         //parsing block
         i_init(&stateStack);
@@ -477,15 +508,19 @@ int main(){
         int condition = 1;
         int reduced = 0;
         int step = 0;
+
         while (condition) {
             if ((step == 0) && (tokens[0].type == EOL)){
-                printf("> ");
                 break;
             }
             if (tokenIndex == TOKEN_SIZE-1) {
                 //printf("Error!\n");
                 break;
             }
+
+            if(errorFoundUninitVar) break;
+
+
             struct token *nextToken;
             if (reduced) {
                 nextToken = ((struct token *) peek(tokenStack));
@@ -505,7 +540,7 @@ int main(){
                 //accept the statement
                 case -1: {
                     if (isAssigned == 0) {
-                        int strsize = 99 + countDigits(intermediateVariableIndex) + (int)strlen(peek(tokenStack)->value);
+                        int strsize = snprintf(NULL, 0, "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %s )\n", peek(tokenStack)->value) + 1;
                         str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+1));
                         sprintf(resulting->text,"call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %s )\n", peek(tokenStack)->value);
                         resulting->size = strsize;
@@ -515,14 +550,12 @@ int main(){
                         intermediateVariableIndex++;
                     }
                     condition = 0;
-                    printf("> ");
                     break;
                 }
                 //error
                 case 0:
-                    printf("Error on line %d!\n", line);
+                    if (errorFoundUninitVar == 0) printf("Error in line %d!\n", line);
                     hasError = 1;
-                    printf("> ");
                     condition = 0;
                     break;
                 //shift

@@ -105,10 +105,6 @@ void lexer(struct token* tokens){
         strncpy(tokenStr, msgbuf + lastPtr + startBuffer, len);
         tokenStr[len] = '\0';
 
-        //check for beginning of the comment
-        const char *comment = "%";
-        int cmp = strcmp(tokenStr, comment);
-        if (cmp == 0) break;
         //tokenize and add to array
         if (!isspace((int) tokenStr[0])) {
             struct token *token = tokenize(tokenStr, len);

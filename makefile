@@ -1,5 +1,5 @@
-AdvCalc: main.o concatenator.o lexer.o stacks.o
-	gcc main.o concatenator.o lexer.o stacks.o -o AdvCalc
+advcalc2ir: main.o concatenator.o lexer.o stacks.o
+	gcc main.o concatenator.o lexer.o stacks.o -o advcalc2ir
 
 main.o: main.c concatenator.h lexer.h stacks.h
 	gcc -g -c main.c
