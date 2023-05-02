@@ -6,6 +6,15 @@
 
 extern char* keys[TABLE_SIZE];
 
+
+
+//function that generates the variable declarations
+//in LLVM language.
+//function traverses through the hash map and for each non-null element:
+//creates a new str struct 
+//writes the allocation string to str
+//appends str to end of the linked list
+
 str* declareAll(){
     str* old;
     str* result = NULL;
@@ -34,6 +43,10 @@ str* declareAll(){
     }
     return result;
 }
+
+//function that links the strings in the linked list into a single C string.
+//function iterates through the linked list, adds the sizes up to calculate the total result.
+//then it traverses the list once again to write strings into the newly allocated string.
 
 char* linkStrings(str* first){
     int size = 0;

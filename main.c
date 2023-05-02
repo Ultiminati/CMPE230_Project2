@@ -26,7 +26,8 @@ str* lastString;
 
 int errorFoundUninitVar = 0;
 
-
+//the parsing table contains the finite state machine that represents the program language in
+//a compact manner within a multi-dimensional array.
 
 const int parsingTable[75][16][2] =
         {{{1, 3}, {0,0}, {1, 4}, {0,0}, {1, 5}, {0,0}, {1, 6}, {0,0}, {0,0}, {0,0}, {0,0}, {1, 7}, {0,0}, {0,0}, {3, 1}, {3, 2}},
@@ -107,7 +108,7 @@ const int parsingTable[75][16][2] =
 };
 
 
-
+//simple hash table functions.
 
 
 char exists(char* string){
@@ -134,6 +135,9 @@ void put(char* string){
     }
 }
 
+//function to count digits of a decimal string.
+//used in dynamically calculating string sizes.
+
 
 int countDigits(int num) {
     int count = 0;
@@ -147,6 +151,13 @@ int countDigits(int num) {
 struct intStack *stateStack;
 struct Stack *tokenStack;
 
+
+
+
+//function that handles evaluation of arithmetic expressions.
+//no unary arithmetic expressions are supported.
+//while most of the string sizes are determined non-scalably, the only major issue
+//-that the size of intermediateVariableIndex- is handled by clever ordering of code.
 
 char* arithmetic(struct token* operator, struct token* leftoperand, struct token* rightoperand){
     char* left = leftoperand->value;
@@ -236,11 +247,18 @@ int getFunction(const char* function){
     return -1;
 }
 
+
+//function that evaluates function-based expressions.
+//string sizes are determined in a more dynamic fashion by snprintf.
+//while this may slow down the program, its effects should be negligible.
+
+
 char* evaluate(struct token* function, struct token* leftoperand, struct token* rightoperand){
     char* left = leftoperand->value;
     int strsize = 0;
     str* resulting = NULL;
     intermediateVariableIndex += 1;
+    //unary function not() is handled by passing the right parameter as NULL
     if (rightoperand == NULL){
         strsize = snprintf(NULL, 0, "%%%d = xor i32 %s,-1\n",intermediateVariableIndex, left) + 1;
         resulting = malloc(sizeof(str) + strsize + 1);
@@ -260,10 +278,10 @@ char* evaluate(struct token* function, struct token* leftoperand, struct token* 
             resulting = malloc(sizeof(str) + sizeof(char)*strsize);
             snprintf(resulting->text, strsize + 1, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
+            //left rotate
         case 3:
             strsize = snprintf(NULL, 0, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
             resulting = malloc(sizeof(str) + sizeof(char)*(strsize + 1));
-            //snprintf does not count for the trailing null, so add it to the sum
             int s1 = snprintf(resulting->text, strsize + 1, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
             int result1 = intermediateVariableIndex;
             intermediateVariableIndex++;
@@ -291,6 +309,7 @@ char* evaluate(struct token* function, struct token* leftoperand, struct token* 
             resulting = malloc(sizeof(str) + sizeof(char)*(strsize + 1));
             snprintf(resulting->text, strsize + 1, "%%%d = ashr i32 %s,%s\n",intermediateVariableIndex, left, right);
             break;
+            //right shift
         case 5:
             strsize = snprintf(NULL, 0, "%%%d = lshr i32 %s,%s\n",intermediateVariableIndex, left, right);
             resulting = malloc(sizeof(str) + sizeof(char)*(strsize + 1));
@@ -337,6 +356,9 @@ void shift(int state, struct token *token){
     token = NULL;
     goTo(state);
 }
+
+//not-so-simple reduction function based on rules of the language grammar.
+//an explanation of the rules are provided in the documentation.
 
 void reduce(int rule){
     switch (rule){
@@ -469,6 +491,9 @@ int main(int argc, char** argv){
     }
     compileregex();
 
+    //the string must be initialized to avoid problems regarding 
+    //concatenation of the string linked list
+
     str* middleString = calloc(1, sizeof(str) + 1);
     middleString -> size = 0;
     middleString -> next = NULL;
@@ -516,6 +541,10 @@ int main(int argc, char** argv){
             } else {
                 nextToken = &tokens[tokenIndex];
             }
+
+            //retrieve: the type of the token, the state program currently is in, the action based on the parsing table
+            //and the target state.
+            //this forms the basis of expression evaluation at each step.
 
             int type = (*nextToken).type;
             int currentState = i_pop(stateStack);
@@ -590,6 +619,8 @@ int main(int argc, char** argv){
     endString->next = NULL;
     strcpy(endString->text,"ret i32 0\n}");
     lastString->next = endString;
+
+    //error flags are very ugly actually
     if (hasError) return 0;
     fprintf(fp, "%s",linkStrings(&firstString));
 }
