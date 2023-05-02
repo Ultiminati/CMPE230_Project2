@@ -151,7 +151,6 @@ struct Stack *tokenStack;
 char* arithmetic(struct token* operator, struct token* leftoperand, struct token* rightoperand){
     char* left = leftoperand->value;
     char* right = rightoperand->value;
-    int digit = countDigits(intermediateVariableIndex);
     intermediateVariableIndex += 1;
     char* result = (char*)calloc(2 + countDigits(intermediateVariableIndex),sizeof(char));
     int strsize = countDigits(intermediateVariableIndex) + (int)strlen(left) + (int)strlen(right);
@@ -442,7 +441,7 @@ void reduce(int rule){
         case 10:{
             struct token* var = (struct token*) peek(tokenStack);
             if (exists(var->value) == 0) {
-                printf("Error in line %d!\n", line);
+                printf("Error on line %d!\n", line);
                 errorFoundUninitVar = 1;
                 var->type = E;
                 break;
@@ -554,7 +553,7 @@ int main(int argc, char** argv){
                 }
                 //error
                 case 0:
-                    if (errorFoundUninitVar == 0) printf("Error in line %d!\n", line);
+                    if (errorFoundUninitVar == 0) printf("Error on line %d!\n", line);
                     hasError = 1;
                     condition = 0;
                     break;
@@ -588,10 +587,14 @@ int main(int argc, char** argv){
         isAssigned = 0;
     }
     regfree(&regex);
+    //variableDeclarations is the LLVM code that contains all the variable declarations.
     str* variableDeclarations = declareAll();
+    // firstString is the initial lines needed for the LLVM to work.
     firstString.next = variableDeclarations;
     while (variableDeclarations->next != NULL) variableDeclarations = variableDeclarations->next;
+    //middleString is the LLVM code that contains all the operations.
     variableDeclarations->next = middleString;
+    //endString is the LLVM code that contains the final lines needed for the LLVM to work.
     str* endString = (str*)malloc(sizeof(str)+sizeof(char)*12);
     endString->size = 11;
     endString->next = NULL;

@@ -44,7 +44,7 @@ char* linkStrings(str* first){
     }
     string = first;
     char* result = (char*) calloc(size+1,sizeof(char));
-    while (string != NULL ){
+    while (string != NULL){
         strcat(result,string->text);
         string = string->next;
     }
