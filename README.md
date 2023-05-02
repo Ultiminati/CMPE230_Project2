@@ -28,7 +28,7 @@ Hashmap was no longer needed to store the variables, a simple array was kept to 
 
 
 
-![alt_text](images/Screenshot_106.jpg "image_tooltip")
+![alt_text](images/Screenshot_106.png "image_tooltip")
 
 
 The parsing of tokens is done through a simple LR(1) parser. First, the input string is divided into tokens using regular expressions and then saved in-order as tokens. Then starting from the leftmost token, the tokens are processed in accordance with the states of a parsing table, either pushed to a token stack or reduced according to the rules of the grammar. (For a more detailed explanation, see below.) A correct expression is then expected to reach the end state, and a syntax error will hit an empty spot in the parsing table, thus halting the evaluation. 
@@ -125,7 +125,7 @@ Our states and their associated defined behaviors form a table, called a parsing
 
 
 
-![alt_text](images/Screenshot_106.png "image_tooltip")
+![alt_text](images/Screenshot_105.png "image_tooltip")
 
 
 Part of our parsing table representation. Illustration is done through https://jsmachines.sourceforge.net/machines/lr1.html
