@@ -1,4 +1,4 @@
-# Project 1: AdvCalc
+# Project 2: AdvCalc++
 
 
 # CMPE 230: Systems Programming, Spring 2023
@@ -7,26 +7,28 @@ Yiğit Kağan Poyrazoğlu
 
 Abdullah Umut Hamzaoğulları
 
-1.04.2023
+1.05.2023
 
 
 ## 1	Introduction
 
-In this project, we implemented an interpreter for a calculator (AdvCalc) that has the desired functionalities of the assignment using C language and its standard libraries. AdvCalc evaluates expressions and accepts variable assignments. 
+In this project, similar to the earlier project, we implemented a translator for a calculator language (AdvCalc++) that converts the language into LLVM IR code. AdvCalc++ has the desired functionalities of the assignment using C language and its standard libraries. AdvCalc++ evaluates expressions and accepts variable assignments. 
 
 The language implied by the notation is made sense of by explicitly writing out grammar rules, and parsing of any expression is achieved by implementing an LR(1) parser. Input strings are analyzed using regular expressions. Needed data structures like stacks are manually implemented.
 
 
 ## 2	Design and Architecture
 
-AdvCalc makes use of a primitive parser to parse the input stream. The input as a line is taken from standard input and is divided into a string of tokens and evaluates these tokens from left to right. Based on language grammar, the program then either outputs a result to standard output, or stores the result in a variable (referred to as program memory from now on).
+The architecture of AdvCalc++ is similar to that of AdvCalc. AdvCalc++ makes use of a primitive parser to parse the input stream. The input as a line is taken from standard input and is divided into a string of tokens and evaluates these tokens from left to right. Then, the program generates the corresponding LLVM string for each expression and stores it in a linked list of strings. After evaluation, the strings are printed to the output file. 
 
-The main structures used throughout the program are a simple hashmap implementation, stacks, and a parsing table (more information is provided below).
+The main structures used throughout the program are stacks, a linked list of strings and a parsing table (more information is provided below).
 
-Hashmap is used to access program memory. Due to the constraints of the project, program memory is initialized as an array of fixed size and is accessed by a calculation of hash code for the corresponding variable. Stacks are used in parsing the expression tokens. A more detailed functionality is illustrated below with a crude flowchart:
+Hashmap was no longer needed to store the variables, a simple array was kept to track the assigned variables, and a linear search in them is done. Stacks are used in parsing the expression tokens. A more detailed functionality is illustrated below with a crude flowchart:
 
 
-![alt_text](images/image2.png "image_tooltip")
+
+
+![alt_text](images/image1.jpg "image_tooltip")
 
 
 The parsing of tokens is done through a simple LR(1) parser. First, the input string is divided into tokens using regular expressions and then saved in-order as tokens. Then starting from the leftmost token, the tokens are processed in accordance with the states of a parsing table, either pushed to a token stack or reduced according to the rules of the grammar. (For a more detailed explanation, see below.) A correct expression is then expected to reach the end state, and a syntax error will hit an empty spot in the parsing table, thus halting the evaluation. 
@@ -38,38 +40,71 @@ The PEG (parsing expression grammar) of the language is as follows:
 	
 
 
-```
-S -> E \
-S -> V=E  \
-E -> (E)  \
-E -> F(E,E)  \
-E -> not(E)  \
-E -> E&E  \
-E -> E|E  \
-E -> E*E  \
-E -> E+E \
-E -> E-E  \
-E -> V  \
-E -> I
-```
+<table>
+  <tr>
+   <td><code>S' -> S</code>
+<p>
+<code>S -> E</code>
+<p>
+<code>S -> V = E</code>
+<p>
+<code>E -> ( E )</code>
+<p>
+<code>E -> F ( E , E )</code>
+<p>
+<code>E -> not ( E )</code>
+<p>
+<code>E -> E mult E</code>
+<p>
+<code>E -> E add E</code>
+<p>
+<code>E -> E & E</code>
+<p>
+<code>E -> E | E</code>
+<p>
+<code>E -> V</code>
+<p>
+<code>E -> I</code>
+   </td>
+  </tr>
+  <tr>
+   <td>
+   </td>
+  </tr>
+</table>
 
 
 where S’ is the starting string, 
+
 S is the string non-terminal,
+
 E is the expression non-terminal,
+
 F is the non-unitary function terminal,
+
 V is the variable terminal,
+
 I is the integer terminal,
+
 not is the not function terminal,
-&, +, -, |,  * are operator terminals,
+
+mult is the list of multiplicative terminals,
+
+add is the list of additive terminals,
+
+&, | are operator terminals,
+
 (, ) and “,” are symbol terminals.
 
-
 The theory behind the LR(1) parser is to see our language as a finite-state machine. In our case, that means, in our language, there are finitely next defined behaviors given what had come before, and there are finitely many situations of what may have come before. For example, if what we have is “3 + “, then only another expression or other tokens that will eventually reduce to an expression can come after.  
+
 States contain information about the situation of what had come before, and languages are collections of states. For each state, we consider the next token and consider how we should interpret the next token. 
+
 There are finite interpretations for a given state, and in this document, the different ways of considering the next token are sometimes referred to as “behaviors”. 
 
 LR(1) parser has four behaviors:
+
+
 
 1. Reduce according to rule r
 2. Shift and go to state s
@@ -86,15 +121,16 @@ Accepting is when we reach the end of the line token. It means to stop parsing a
 
 In this system, when we “update our state”, we cannot simply change our current state, we should also store the previous ones because when we reduce an expression, we will get back to those previous states (from last to first). So they should be stored in a data structure like a stack. Similarly, while reducing, last-put tokens are taken out and new ones are put in, so they should also be stored in a data structure like a stack as well.
 
-Our states and their associated defined behaviors form a table, called a parsing table. 
+Our states and their associated defined behaviors form a table, called a parsing table. Below is our (part of) updated parsing table for this project:
 
 
-![alt_text](images/image1.png "image_tooltip")
+
+![alt_text](images/image2.png "image_tooltip")
 
 
 Part of our parsing table representation. Illustration is done through https://jsmachines.sourceforge.net/machines/lr1.html
 
-Sometimes, there may be conflicting behaviors given a state. This is simply called a conflict. For example, when our expression is “3+4*5” and we have read till “4”, the next token is *, and according to our grammar, we should continue reading to see the end of the operation. But at the same time, we have reached a state where two operands and the operator is read, so again according to our grammar, we should be reducing our expression “3+4”.
+Sometimes, there may be conflicting behaviors given a state. This is simply called a conflict. For example, when our expression is “3+4*5” and we have read till “4”, the next token is *, and according to our grammar, we should continue reading to see the end of the operation. But at the same time, we have reached a state where two operands and the operator are read, so again according to our grammar, we should be reducing our expression “3+4”.
 
 In this case, we introduce precedence and choose the behavior associated with the more precedent token, and therefore resolve the conflict. If conflicts existed even after the precedences, then that means we have an ambiguous grammar and should fix our grammar rules.
 
@@ -112,11 +148,10 @@ enum type{
     F,
     COMM,
     NOT,
-    AND,
-    OR,
     MULT,
     ADD,
-    SUB,
+    AND,
+    OR,
     I,
     EOL, 
     Sp,
@@ -128,7 +163,7 @@ enum type{
 
 Matching with grammar rules seen in Section 2:
 
-EQ is “=”, OBR is “(“, CBR is “)”, COMM is “, ”, NOT is “not”, AND is “&”, OR is “|”, MULT is “*”, ADD is “+”, SUB is “/”, EOL is “$”, Sp is “S’ ”.
+EQ is “=”, OBR is “(“, CBR is “)”, COMM is “, ”, NOT is “not”, AND is “&”, OR is “|”, MULT is “*” or “/” or “%”, ADD is “+” or “-”, EOL is “$”, Sp is “S’ ”.
 
 Tokens are stored in a struct. Their values and their types are stored as members of the struct:
 
@@ -212,20 +247,37 @@ int toHash(char* string){
     }
     return hash%TABLE_SIZE;
 }
+
 ```
 
 
+The strings, as mentioned above, are stored as linked lists. This data structure is preferred as the main concern of the program is appending strings, which is achieved in O(1) time.
+
+A string is initalized through the str struct:
+
+
+```c
+typedef struct linked_strings {
+    int size;
+    struct linked_strings* next;
+    char text[];
+} str;
+```
+
+
+Each string node stores its size, value and the next string it points to. This structure saves the developers from handling dynamic memory allocation for the  program string every time a new line is evaluated. 
+
 ### 3.1	Lexer
 
-The lexer acts on the string of the entire line. As stated above, regular expressions are used to divide the string into tokens, then token structs are initialized and stored.
+	The lexer acts on the string of the entire line. As stated above, regular expressions are used to divide the string into tokens, then token structs are initialized and stored.
 
-The regular expression used to match tokens is as follows:
+	The regular expression used to match tokens is as follows:
 
 	`[a-zA-Z]+|[0-9]+|[^[:alnum:]]`
 
-The expression is written in POSIX Extended Regular Expressions syntax. It matches words with uppercase or lowercase letters from the English alphabet, numbers, or non-alphanumeric characters of length 1.
+	The expression is written in POSIX Extended Regular Expressions syntax. It matches words with uppercase or lowercase letters from the English alphabet, numbers, or non-alphanumeric characters of length 1.
 
-To compile and compare this regular expression, regex.h library is used.
+	To compile and compare this regular expression, regex.h library is used.
 
 
 ```c
@@ -369,62 +421,82 @@ In the main loop, after the input is lexed, if we haven’t reached the end of t
 
 ```c
 while (condition) {
-   if ((step == 0) && (tokens[0].type == EOL)){
-       printf("> ");
-       break;
-   }
-   if (tokenIndex == TOKEN_SIZE-1) {
-       //printf("Error!\n");
-       break;
-   }
-   struct token *nextToken;
-   if (reduced) {
-       nextToken = ((struct token *) peek(tokenStack));
-   } else {
-       nextToken = &tokens[tokenIndex];
-   }
-
-   int type = (*nextToken).type;
-   int currentState = i_pop(stateStack);
-
-   int action = parsingTable[currentState][type][0];
-   int targetState = parsingTable[currentState][type][1];
-
-
-   reduced = 0;
-   step++;
-   switch (action) {
-       //accept the statement
-       case -1: {
-           if (isAssigned == 0) printf("%s\n", ((struct token *) peek(tokenStack))->value);
-           condition = 0;
-           printf("> ");
+       if ((step == 0) && (tokens[0].type == EOL)){
            break;
        }
-       //error
-       case 0:
-           printf("Error!\n");
-           printf("> ");
-           condition = 0;
+       if (tokenIndex == TOKEN_SIZE-1) {
+           //printf("Error!\n");
            break;
-       //shift
-       case 1:
-           i_push(stateStack, currentState);
-           shift(targetState, nextToken);
-           nextToken = NULL;
-           tokenIndex++;
-           break;
-       //reduce
-       case 2:
-           reduce(targetState);
-           reduced = 1;
-           break;
-       //goto
-       case 3:
-           i_push(stateStack, currentState);
-           goTo(targetState);
-           break;
+       }
+
+       if(errorFoundUninitVar) break;
+
+
+       struct token *nextToken;
+       if (reduced) {
+           nextToken = ((struct token *) peek(tokenStack));
+       } else {
+           nextToken = &tokens[tokenIndex];
+       }
+
+       int type = (*nextToken).type;
+       int currentState = i_pop(stateStack);
+
+       int action = parsingTable[currentState][type][0];
+       int targetState = parsingTable[currentState][type][1];
+
+       reduced = 0;
+       step++;
+       switch (action) {
+           //accept the statement
+           case -1: {
+               if (isAssigned == 0) {
+                   int strsize = snprintf(NULL, 0, "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %s )\n", peek(tokenStack)->value) + 1;
+                   str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+1));
+                   sprintf(resulting->text,"call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %s )\n", peek(tokenStack)->value);
+                   resulting->size = strsize;
+                   resulting->next = NULL;
+                   lastString->next = resulting;
+                   lastString = resulting;
+                   intermediateVariableIndex++;
+               }
+               condition = 0;
+               break;
+           }
+           //error
+           case 0:
+               if (errorFoundUninitVar == 0) printf("Error on line %d!\n", line);
+               hasError = 1;
+               condition = 0;
+               break;
+           //shift
+           case 1:
+               i_push(stateStack, currentState);
+               shift(targetState, nextToken);
+               nextToken = NULL;
+               tokenIndex++;
+               break;
+           //reduce
+           case 2:
+               reduce(targetState);
+               reduced = 1;
+               break;
+           //goto
+           case 3:
+               i_push(stateStack, currentState);
+               goTo(targetState);
+               break;
+           default:{
+               printf("%s","Something has gone really, really wrong.");
+               break;
+           }
+       }
    }
+   free(stateStack);
+   free(tokenStack);
+   free(tokens);
+   tokenIndex = 0;
+   isAssigned = 0;
 }
 ```
 
@@ -457,16 +529,40 @@ void shift(int state, struct token *token){
 
 reduce() function takes in the rule we should reduce our expression according to. Depending on the rule, it pops out the correct amount of tokens from the tokenStack. Then, it either changes the token type of a token or creates a new kind of token which is the reduced expression. (As discussed in Section 2, the rule is applied backward when reducing.) 
 
-Here is an example of reducing according to the first rule of our grammar:
+Here is an example of reducing according to the first three rules of our grammar:
 
 
-```c
+```
 void reduce(int rule){
    switch (rule){
        case 0:{
            struct token* token = (struct token*) pop(tokenStack);
            token->type = Sp;
            push(tokenStack, token);
+           break;
+       }
+       case 1:{
+           struct token* token = (struct token*) pop(tokenStack);
+           token->type = S;
+           push(tokenStack, token);
+           break;
+       }
+       case 2:{
+           struct token* expression = (struct token*) pop(tokenStack);
+           pop(tokenStack);
+           struct token* var = (struct token*) peek(tokenStack);
+           put(var->value);
+           var->type = S;
+           isAssigned = 1;
+           i_pop(stateStack);
+           i_pop(stateStack);
+           int strsize = 19 + (int)strlen(expression->value) + (int)strlen(var->value);
+           str* resulting = (str*)malloc(sizeof(str)+sizeof(char)*(strsize+1));
+           sprintf(resulting->text,"store i32 %s, i32* %%%s\n", expression->value, var->value);
+           resulting->size = strsize;
+           resulting->next = NULL;
+           lastString->next = resulting;
+           lastString = resulting;
            break;
        }
 ```
@@ -476,7 +572,7 @@ When the rule is about functions that take two inputs, we send the necessary inf
 
 
 ```c
-       case 4:{
+case 4:{
            pop(tokenStack);
            struct token* rightOperand = (struct token*) pop(tokenStack);
            pop(tokenStack);
@@ -499,50 +595,70 @@ When the rule is about functions that take two inputs, we send the necessary inf
 ```
 
 
-evaluate and arithmetic functions do the necessary operations and return the result. They have similar structures, and here is the evaluate function:
+evaluate and arithmetic functions do the necessary operations and add the needed string to our linked list of strings, called resulting, and added to be the next element of lastString. They have similar structures, and here is the evaluate function for the first two cases:
 
 
 ```c
-long long evaluate(struct token* function, struct token* leftoperand, struct token* rightoperand){
-   long long leftVal = strtoll(leftoperand->value, NULL, 10);
+char* evaluate(struct token* function, struct token* leftoperand, struct token* rightoperand){
+   char* left = leftoperand->value;
+   int strsize = 0;
+   str* resulting = NULL;
+   intermediateVariableIndex += 1;
    if (rightoperand == NULL){
-       return ~leftVal;
+       strsize = snprintf(NULL, 0, "%%%d = xor i32 %s,-1\n",intermediateVariableIndex, left) + 1;
+       resulting = malloc(sizeof(str) + strsize + 1);
+       snprintf(resulting->text, strsize + 1, "%%%d = xor i32 %s,-1\n",intermediateVariableIndex, left);
    }
-   long long rightVal = strtoll(rightoperand->value, NULL, 10);
-
-   long long result;
+   char* right = rightoperand->value;
    switch (getFunction(function->value)){
        case 0:
            break;
        case 1:
-           result = leftVal ^ rightVal;
+           strsize = snprintf(NULL, 0, "%%%d = xor i32 %s,%s\n",intermediateVariableIndex, left, right) + 1;
+           resulting = malloc(sizeof(str) + sizeof(char)*strsize);
+           snprintf(resulting->text, strsize + 1, "%%%d = xor i32 %s,%s\n",intermediateVariableIndex, left, right);
            break;
        case 2:
-           result = leftVal << rightVal;
+           strsize = snprintf(NULL, 0, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right) + 1;
+           resulting = malloc(sizeof(str) + sizeof(char)*strsize);
+           snprintf(resulting->text, strsize + 1, "%%%d = shl i32 %s,%s\n",intermediateVariableIndex, left, right);
            break;
-       case 3:
-           result = (leftVal << rightVal)|(leftVal >> (64 - rightVal));
-           break;
-       case 4:
-           result = leftVal >> rightVal;
-           break;
-       case 5:
-           result = (leftVal >> rightVal)|(leftVal << (64 - rightVal));
-           break;
-   }
-   return result;
-}
+
 ```
 
 
-With the structures described above, tokens are parsed and eventually are reduced to a single expression, and that is the moment our table points us to “accept”, and finish parsing. If the tokens contained undefined behaviors in our language, then a syntax error is printed instead.
+To make the full string of LLVM, we simply concatenate our linked lists with the help of functions defined in concatenator.c:
+
+
+```c
+//variableDeclarations is the LLVM code that contains all the variable declarations.
+str* variableDeclarations = declareAll();
+// firstString is the initial lines needed for the LLVM to work.
+firstString.next = variableDeclarations;
+while (variableDeclarations->next != NULL) variableDeclarations = variableDeclarations->next;
+//middleString is the LLVM code that contains all the operations.
+variableDeclarations->next = middleString;
+//endString is the LLVM code that contains the final lines needed for the LLVM to work.
+str* endString = (str*)malloc(sizeof(str)+sizeof(char)*12);
+endString->size = 11;
+endString->next = NULL;
+strcpy(endString->text,"ret i32 0\n}");
+lastString->next = endString;
+if (hasError) return 0;
+fprintf(fp, "%s",linkStrings(&firstString));
+```
+
+
+With the structures described above, tokens are parsed and when our code calls for a reduce, we write them in LLVM form to a string. Eventually, that means that we have compiled the code, and that is the moment our table points us to “accept”, and finish parsing. If the tokens contained undefined behaviors in our language or if an undefined variable is tried to be accessed, we declare whichever line containing this commands had errors in them, with the help of our global variable that counts our lines.
 
 	
 
 ## 4	Testing and Validation
 
 
-Since the grammar is almost completely specified, most syntax errors do not even need separate handling. During testing, three cases were found to be uncovered by the specified grammar:
+Since the grammar is almost completely specified, most syntax errors do
+
+not even need separate handling. During testing, three cases were found to be uncovered by the specified grammar:
 
 -empty line/whitespace line
 
@@ -554,7 +670,9 @@ Empty lines are checked before beginning the parsing process. The handling of th
 
 While the program does not cover a broad possibility of faulty inputs (such as Unicode incompatibility), the assignment clarifies that the program will not be tested with such dirty inputs. For any input with which the program will be tested, it is expected to run without any problems. 
 
-Similarly, the code has the same limitations of tokens and variables as the assignment’s upper limit for those.
+Similarly, the code has the same limitations of tokens and variables as the
+
+assignment’s upper limit for those.
 
 Testing is done as with the example inputs of the assignments and the possible edge cases that were posted in the course’s forum, and the outputs were identical to what they should be.
 
@@ -565,44 +683,116 @@ The usage is complicit with the assignment’s requirements. How it should be co
 
 
 ```makefile
-AdvCalc: main.o lexer.o stacks.o
-   gcc main.o lexer.o stacks.o -o AdvCalc
+advcalc2ir: main.o concatenator.o lexer.o stacks.o
+   gcc main.o concatenator.o lexer.o stacks.o -o advcalc2ir
 
-main.o: main.c lexer.h stacks.h
-   gcc -c main.c
+main.o: main.c concatenator.h lexer.h stacks.h
+   gcc -g -c main.c
 
 lexer.o: lexer.c lexer.h
-   gcc -c lexer.c
+   gcc -g -c lexer.c
 
 stacks.o: stacks.c stacks.h
-   gcc -c stacks.c
+   gcc -g -c stacks.c
+
+concatenator.o: concatenator.c concatenator.h
+   gcc -g -c concatenator.c
 ```
 
 
-Below are some example usages from the terminal:
+
+Below are some example inputs and their corresponding translations to LLVM:
 
 
-```shell
-ultiminati@Ultiminati:/mnt/c/Users/omen/ClionProjects/CMPE230_Project1$ make
-gcc -c main.c
-gcc -c lexer.c
-gcc -c stacks.c
-gcc main.o lexer.o stacks.o -o AdvCalc
-ultiminati@Ultiminati:/mnt/c/Users/omen/ClionProjects/CMPE230_Project1$ ./AdvCalc
-> 14+24*46
-1118
-> 4 & 5
-4
-> x + + 1
-Error!
-> xor(111,222)
-177
-> x = xor(111,222)
+```
+8
+8 * 2
+ls(88              * 2 + 6, 2)
+xor(9 - 3, 17 - 6)
+not(10 * (23 - 0) * 0 - 1)
+lr(10, 2 | 4)
+rr(17, 1 & 3)
+xor(ls(8, 12 + 3), not(3 - 10))
+xor(xor(lr(10, 2), rr(17, 1)), 0)
+not(xor(lr(10, 2), rr(17, 1)))
+```
+
+
+
+```llvm
+; ModuleID = 'advcalc2ir'
+declare i32 @printf(i8*, ...)
+@print.str = constant [4 x i8] c"%d\0A\00"
+
+define i32 @main() {
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 8 )
+%2 = mul i32 8,2
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %2 )
+%4 = mul i32 88,2
+%5 = add i32 %4,6
+%6 = shl i32 %5,2
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %6 )
+%8 = sub i32 9,3
+%9 = sub i32 17,6
+%10 = xor i32 %8,%9
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %10 )
+%12 = sub i32 23,0
+%13 = mul i32 10,%12
+%14 = mul i32 %13,0
+%15 = sub i32 %14,1
+%16 = xor i32 %15,-1
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %16 )
+%18 = or i32 2,4
+%19 = shl i32 10,%18
+%20 = sub i32 32,%18
+%21 = lshr i32 10,%20
+%22 = or i32 %19,%21
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %22 )
+%24 = and i32 1,3
+%25 = lshr i32 17,%24
+%26 = sub i32 32,%24
+%27 = shl i32 17,%26
+%28 = or i32 %25,%27
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %28 )
+%30 = add i32 12,3
+%31 = shl i32 8,%30
+%32 = sub i32 3,10
+%33 = xor i32 %32,-1
+%34 = xor i32 %31,%33
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %34 )
+%36 = shl i32 10,2
+%37 = sub i32 32,2
+%38 = lshr i32 10,%37
+%39 = or i32 %36,%38
+%40 = lshr i32 17,1
+%41 = sub i32 32,1
+%42 = shl i32 17,%41
+%43 = or i32 %40,%42
+%44 = xor i32 %39,%43
+%45 = xor i32 %44,0
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %45 )
+%47 = shl i32 10,2
+%48 = sub i32 32,2
+%49 = lshr i32 10,%48
+%50 = or i32 %47,%49
+%51 = lshr i32 17,1
+%52 = sub i32 32,1
+%53 = shl i32 17,%52
+%54 = or i32 %51,%53
+%55 = xor i32 %50,%54
+%56 = xor i32 %55,-1
+call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %56 )
+ret i32 0
+}
 ```
 
 
 ## 6	Conclusion
 
-The first project of the Systems Programming course, AdvCalc, is an interpreter based on a compact grammar. By first specifying the grammar, then generating the parsing table and constructing the lexer and parser algorithms, it is implemented in a holistic, theory-compliant manner to provide insight into compiler/interpreter design and language parsing.
+The second project of the Systems Programming course, AdvCalc++, is a translator based on a compact grammar. By first specifying the grammar, then generating the parsing table and constructing the lexer and parser algorithms, it is implemented in a holistic, theory-compliant manner to provide insight into compiler/interpreter design and language parsing.
 
-Throughout this project, our skills in C programming were greatly improved, and we believe that we have learned a lot about methods of string parsing, interpreter design, and as extra, finite state machines. 
+Interestingly, the project was not very difficult at its design concept, and neither in most of its implementation; except for the fact that we had not learnt about buffer overflows beforehand and had used functions like sprintf with static memory allocation. So the main obstacle was to figure out a way to handle dynamic string sizes.
+
+Also it should be noted that the program has some memory leaks but none of us had any time or energy to solve them. Also they are unimportant since an average computer is way too powerful to crash on ~50 KB of leaked memory.
+
+The main takeaway of this project was, undeniably, that it has taught us how to use valgrind and why one should never use unsafe string methods.
