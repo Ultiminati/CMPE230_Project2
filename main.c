@@ -236,16 +236,6 @@ int getFunction(const char* function){
     return -1;
 }
 
-int strsizeof(char* str){
-    int size = 0;
-    while (str != NULL) {
-        size++;
-        str++;
-    }
-    return size;
-}
-
-
 char* evaluate(struct token* function, struct token* leftoperand, struct token* rightoperand){
     char* left = leftoperand->value;
     int strsize = 0;
